@@ -1,0 +1,87 @@
+name: Terraform Plan
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'terraform/**'
+      - '.github/workflows/tf-plan.yml'
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+jobs:
+  plan:
+    name: Terraform Plan
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC — read-only role)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.ROLE_ARN_PLAN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.6"
+
+      - name: Terraform Init
+        id: init
+        working-directory: terraform
+        run: terraform init -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}"
+
+      - name: Terraform Validate
+        id: validate
+        working-directory: terraform
+        run: terraform validate
+
+      - name: Terraform Plan
+        id: plan
+        working-directory: terraform
+        run: |
+          terraform plan \
+            -var="ssh_public_key=${{ vars.SSH_PUBLIC_KEY }}" \
+            -no-color \
+            -out=tfplan 2>&1 | tee plan_output.txt
+        continue-on-error: true
+
+      - name: Comment plan on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const plan = fs.readFileSync('terraform/plan_output.txt', 'utf8');
+            const truncated = plan.length > 60000
+              ? plan.substring(0, 60000) + '\n\n... (truncado — ver logs completos)'
+              : plan;
+
+            const status = '${{ steps.plan.outcome }}' === 'success' ? '✅' : '❌';
+
+            const body = `## Terraform Plan ${status}
+
+            <details><summary>Ver plan completo</summary>
+
+            \`\`\`hcl
+            ${truncated}
+            \`\`\`
+
+            </details>
+
+            > Commit: \`${{ github.sha }}\``;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body
+            });
+
+      - name: Fail if plan failed
+        if: steps.plan.outcome == 'failure'
+        run: exit 1

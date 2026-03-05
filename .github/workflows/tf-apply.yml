@@ -1,0 +1,49 @@
+name: Terraform Apply
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'terraform/**'
+      - '.github/workflows/tf-apply.yml'
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  apply:
+    name: Terraform Apply
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC — apply role)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.6"
+
+      - name: Terraform Init
+        working-directory: terraform
+        run: terraform init -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}"
+
+      - name: Terraform Apply
+        working-directory: terraform
+        run: |
+          terraform apply \
+            -var="ssh_public_key=${{ vars.SSH_PUBLIC_KEY }}" \
+            -auto-approve \
+            -no-color
+
+      - name: Show outputs
+        working-directory: terraform
+        run: terraform output

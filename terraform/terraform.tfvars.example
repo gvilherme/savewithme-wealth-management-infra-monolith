@@ -1,0 +1,5 @@
+# Copie para terraform.tfvars (git-ignored) para rodar localmente
+aws_region     = "us-east-1"
+app_name       = "savewithme"
+instance_type  = "t3.small"
+ssh_public_key = "ssh-rsa AAAA... seu@email.com"
