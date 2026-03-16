@@ -19,4 +19,5 @@ variable "instance_type" {
 variable "ssh_public_key" {
   description = "SSH public key content to inject into EC2"
   type        = string
+  sensitive   = true
 }

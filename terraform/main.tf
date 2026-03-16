@@ -11,7 +11,6 @@ terraform {
   backend "s3" {
     # bucket is injected via -backend-config in CI
     key    = "savewithme/monolith/terraform.tfstate"
-    region = "us-east-1"
   }
 }
 

@@ -31,6 +31,11 @@ resource "aws_instance" "app" {
     delete_on_termination = true
   }
 
+  metadata_options {
+    http_tokens                 = "required"
+    http_put_response_hop_limit = 1
+  }
+
   user_data = <<-EOF
     #!/bin/bash
     set -e

@@ -8,7 +8,7 @@ resource "aws_security_group" "app" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = var.ssh_allowed_cidrs
   }
 
   ingress {
@@ -16,7 +16,7 @@ resource "aws_security_group" "app" {
     from_port   = 8080
     to_port     = 8080
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = [aws_vpc.main.cidr_block]
   }
 
   egress {
@@ -27,4 +27,10 @@ resource "aws_security_group" "app" {
   }
 
   tags = { Name = "${var.app_name}-sg" }
+}
+
+variable "ssh_allowed_cidrs" {
+  type        = list(string)
+  description = "List of CIDR blocks allowed to access the instance via SSH (port 22)."
+  default     = ["10.0.0.0/16"]
 }
