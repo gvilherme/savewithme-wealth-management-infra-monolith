@@ -1,6 +1,12 @@
 name: Terraform Plan
 
 on:
+  push:
+    branches:
+      - 'feature/**'
+    paths:
+      - 'terraform/**'
+      - '.github/workflows/tf-plan.yml'
   pull_request:
     branches: [main]
     paths:
@@ -23,8 +29,8 @@ jobs:
       - name: Configure AWS credentials (OIDC — read-only role)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ vars.ROLE_ARN_PLAN }}
-          aws-region: ${{ vars.AWS_REGION }}
+          role-to-assume: ${{ secrets.ROLE_ARN_PLAN }}
+          aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -34,7 +40,7 @@ jobs:
       - name: Terraform Init
         id: init
         working-directory: terraform
-        run: terraform init -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}"
+        run: terraform init -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}"
 
       - name: Terraform Validate
         id: validate
@@ -46,12 +52,39 @@ jobs:
         working-directory: terraform
         run: |
           terraform plan \
-            -var="ssh_public_key=${{ vars.SSH_PUBLIC_KEY }}" \
+            -var="ssh_public_key=${{ secrets.SSH_PUBLIC_KEY }}" \
             -no-color \
             -out=tfplan 2>&1 | tee plan_output.txt
         continue-on-error: true
 
-      - name: Comment plan on PR
+      - name: Open PR to main (feature/* push, plan success)
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/feature/') && steps.plan.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BRANCH="${GITHUB_REF#refs/heads/}"
+          PLAN=$(cat terraform/plan_output.txt | head -c 60000)
+
+          printf '## Terraform Plan ✅\n\n<details><summary>Ver plan completo</summary>\n\n```hcl\n%s\n```\n\n</details>\n\n> Commit: `%s`\n' \
+            "$PLAN" "${{ github.sha }}" > /tmp/pr_body.md
+
+          EXISTING=$(gh pr list --head "$BRANCH" --base main --json number --jq '.[0].number' 2>/dev/null || true)
+
+          if [ -z "$EXISTING" ]; then
+            gh pr create \
+              --title "infra: ${BRANCH#feature/}" \
+              --base main \
+              --head "$BRANCH" \
+              --body-file /tmp/pr_body.md
+
+            PR_NUMBER=$(gh pr list --head "$BRANCH" --base main --json number --jq '.[0].number')
+            gh pr edit "$PR_NUMBER" --add-reviewer "github-copilot[bot]" 2>/dev/null || true
+          else
+            gh pr comment "$EXISTING" --body-file /tmp/pr_body.md
+          fi
+
+      - name: Comment plan on PR (PR event)
+        if: github.event_name == 'pull_request'
         uses: actions/github-script@v7
         with:
           script: |
