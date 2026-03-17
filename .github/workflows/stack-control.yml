@@ -63,10 +63,14 @@ jobs:
           terraform output -raw ec2_public_ip > /tmp/new_ip.txt
 
       - name: Update EC2_HOST secret in app repo (stack:recreate only)
-        if: github.event.label.name == 'stack:recreate' && secrets.APP_REPO_TOKEN != ''
+        if: github.event.label.name == 'stack:recreate'
         env:
           GH_TOKEN: ${{ secrets.APP_REPO_TOKEN }}
         run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "APP_REPO_TOKEN not set, skipping EC2_HOST update"
+            exit 0
+          fi
           NEW_IP=$(cat /tmp/new_ip.txt)
           gh secret set EC2_HOST \
             --env production \
