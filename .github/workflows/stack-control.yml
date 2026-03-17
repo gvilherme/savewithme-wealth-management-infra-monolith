@@ -26,7 +26,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh issue comment ${{ github.event.issue.number }} \
-            --body "⏳ Iniciando **${{ github.event.label.name }}**... [Ver workflow](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+            --body "Iniciando ${{ github.event.label.name }}... Ver workflow: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -72,10 +72,9 @@ jobs:
             exit 0
           fi
           NEW_IP=$(cat /tmp/new_ip.txt)
-          gh secret set EC2_HOST \
+          echo "$NEW_IP" | gh secret set EC2_HOST \
             --env production \
-            --repo ${{ secrets.APP_REPO_SLUG }} \
-            --body "$NEW_IP"
+            --repo ${{ secrets.APP_REPO_SLUG }}
 
       - name: Comment success
         if: success()
@@ -84,10 +83,10 @@ jobs:
         run: |
           if [ "${{ github.event.label.name }}" == "stack:recreate" ]; then
             OUTPUTS=$(cat /tmp/tf_outputs.txt 2>/dev/null || echo "sem outputs")
-            printf '✅ Stack recriada com sucesso.\n\n```\n%s\n```\n\n> Secret `EC2_HOST` atualizado automaticamente no repo do app.' \
+            printf 'Stack recriada com sucesso.\n\n```\n%s\n```\n\nSecret EC2_HOST atualizado no repo do app.' \
               "$OUTPUTS" > /tmp/comment.md
           else
-            echo "✅ Stack destruída com sucesso." > /tmp/comment.md
+            echo "Stack destruida com sucesso." > /tmp/comment.md
           fi
           gh issue comment ${{ github.event.issue.number }} --body-file /tmp/comment.md
           gh issue close ${{ github.event.issue.number }}
@@ -98,4 +97,4 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh issue comment ${{ github.event.issue.number }} \
-            --body "❌ Falhou. [Ver logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+            --body "Falhou. Ver logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
