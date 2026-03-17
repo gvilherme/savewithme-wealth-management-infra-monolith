@@ -1,0 +1,97 @@
+name: Stack Control
+
+on:
+  issues:
+    types: [labeled]
+
+permissions:
+  id-token: write
+  contents: read
+  issues: write
+
+jobs:
+  control:
+    name: ${{ github.event.label.name }}
+    runs-on: ubuntu-latest
+    environment: production
+    if: >
+      (github.event.label.name == 'stack:destroy' || github.event.label.name == 'stack:recreate')
+      && github.actor == github.repository_owner
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Comment starting
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue comment ${{ github.event.issue.number }} \
+            --body "⏳ Iniciando **${{ github.event.label.name }}**... [Ver workflow](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.6"
+
+      - name: Terraform Init
+        working-directory: terraform
+        run: terraform init -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}"
+
+      - name: Terraform Destroy
+        working-directory: terraform
+        run: |
+          terraform destroy \
+            -var="ssh_public_key=${{ secrets.SSH_PUBLIC_KEY }}" \
+            -auto-approve \
+            -no-color
+
+      - name: Terraform Apply (stack:recreate only)
+        if: github.event.label.name == 'stack:recreate'
+        working-directory: terraform
+        run: |
+          terraform apply \
+            -var="ssh_public_key=${{ secrets.SSH_PUBLIC_KEY }}" \
+            -auto-approve \
+            -no-color
+          terraform output -no-color > /tmp/tf_outputs.txt
+          terraform output -raw ec2_public_ip > /tmp/new_ip.txt
+
+      - name: Update EC2_HOST secret in app repo (stack:recreate only)
+        if: github.event.label.name == 'stack:recreate' && secrets.APP_REPO_TOKEN != ''
+        env:
+          GH_TOKEN: ${{ secrets.APP_REPO_TOKEN }}
+        run: |
+          NEW_IP=$(cat /tmp/new_ip.txt)
+          gh secret set EC2_HOST \
+            --env production \
+            --repo ${{ secrets.APP_REPO_SLUG }} \
+            --body "$NEW_IP"
+
+      - name: Comment success
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ "${{ github.event.label.name }}" == "stack:recreate" ]; then
+            OUTPUTS=$(cat /tmp/tf_outputs.txt 2>/dev/null || echo "sem outputs")
+            printf '✅ Stack recriada com sucesso.\n\n```\n%s\n```\n\n> Secret `EC2_HOST` atualizado automaticamente no repo do app.' \
+              "$OUTPUTS" > /tmp/comment.md
+          else
+            echo "✅ Stack destruída com sucesso." > /tmp/comment.md
+          fi
+          gh issue comment ${{ github.event.issue.number }} --body-file /tmp/comment.md
+          gh issue close ${{ github.event.issue.number }}
+
+      - name: Comment failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue comment ${{ github.event.issue.number }} \
+            --body "❌ Falhou. [Ver logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
