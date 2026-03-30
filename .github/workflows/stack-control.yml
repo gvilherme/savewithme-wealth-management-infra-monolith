@@ -72,7 +72,8 @@ jobs:
             exit 0
           fi
           NEW_IP=$(cat /tmp/new_ip.txt)
-          echo "$NEW_IP" | gh secret set EC2_HOST \
+          gh secret set EC2_HOST \
+            --body "$NEW_IP" \
             --env production \
             --repo ${{ secrets.APP_REPO_SLUG }}
 
