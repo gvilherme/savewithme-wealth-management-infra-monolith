@@ -1,0 +1,33 @@
+name: "Feature Request"
+description: "Sugira uma melhoria ou nova funcionalidade na infraestrutura ou nos workflows."
+title: "[feat] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Contexto / problema
+      description: Qual problema esta feature resolve? Qual a motivação?
+      placeholder: Ex. Toda vez que X acontece, preciso fazer Y manualmente...
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Solução proposta
+      description: Descreva o que você gostaria que fosse implementado.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternativas consideradas
+      description: Alguma outra abordagem que você considerou?
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Contexto adicional
+      description: Links, referências, screenshots ou qualquer outra informação relevante.

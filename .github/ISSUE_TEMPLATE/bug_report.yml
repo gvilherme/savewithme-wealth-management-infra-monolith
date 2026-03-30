@@ -1,0 +1,39 @@
+name: "Bug Report"
+description: "Reporte um problema na infraestrutura ou nos workflows."
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Descrição
+      description: O que aconteceu? Descreva o problema com clareza.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Como reproduzir
+      description: Passos para reproduzir o comportamento.
+      placeholder: |
+        1. Executei o workflow '...'
+        2. Com os parâmetros '...'
+        3. O erro foi '...'
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Comportamento esperado
+      description: O que deveria ter acontecido?
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / contexto adicional
+      description: Cole aqui logs de erro, links para workflow runs, outputs do Terraform, etc.
+      render: shell

@@ -1,0 +1,30 @@
+name: "Stack: Destroy"
+description: "Destrói toda a infraestrutura via Terraform destroy. ADMIN ONLY."
+title: "[stack:destroy] "
+labels: ["stack:destroy"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        > **Atenção:** Esta ação é restrita ao administrador do repositório.
+        > Submeter esta issue irá aplicar a label `stack:destroy` e acionar o workflow automaticamente.
+        > Se você não é o owner do repositório, o workflow não será executado.
+
+  - type: checkboxes
+    id: confirmation
+    attributes:
+      label: Confirmação
+      options:
+        - label: Confirmo que quero destruir toda a infraestrutura (`terraform destroy`)
+          required: true
+        - label: Entendo que esta ação é irreversível e todos os recursos serão removidos
+          required: true
+
+  - type: textarea
+    id: reason
+    attributes:
+      label: Motivo
+      description: Por que a stack precisa ser destruída?
+      placeholder: Ex. Fim do ciclo de desenvolvimento, redução de custos, etc.
+    validations:
+      required: true
