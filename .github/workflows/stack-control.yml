@@ -86,7 +86,7 @@ jobs:
             printf 'Stack recriada com sucesso.\n\n```\n%s\n```\n\nSecret EC2_HOST atualizado no repo do app.' \
               "$OUTPUTS" > /tmp/comment.md
           else
-            echo "Stack destruida com sucesso." > /tmp/comment.md
+            echo "Stack destruída com sucesso." > /tmp/comment.md
           fi
           gh issue comment ${{ github.event.issue.number }} --body-file /tmp/comment.md
           gh issue close ${{ github.event.issue.number }}
