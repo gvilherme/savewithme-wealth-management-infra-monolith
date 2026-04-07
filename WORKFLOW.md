@@ -57,13 +57,8 @@ push feature/*
 **O que faz (stack:recreate):**
 1. Destrói a infra atual
 2. Recria via terraform apply
-3. Atualiza automaticamente o secret `EC2_HOST` no repo do app (requer `APP_REPO_TOKEN` + `APP_REPO_SLUG`)
-4. Comenta os outputs com o novo IP na issue
-5. Fecha a issue
-
-**Secrets extras para update automático do IP:**
-- `APP_REPO_TOKEN` — PAT com `secrets:write` no repo do app
-- `APP_REPO_SLUG` — ex: `gvilherme/savewithme-wealth-management-backend`
+3. Comenta os outputs na issue
+4. Fecha a issue
 
 > ⚠️ Só o owner do repositório pode disparar (verificação via `github.actor`).
 > O state Terraform fica no S3, então mesmo após destroy o apply sabe o que recriar.
@@ -90,5 +85,3 @@ Configurar em: Settings → Branches → Branch protection rules → `main`
 | `AWS_REGION` | Região AWS (us-east-1) |
 | `TF_STATE_BUCKET` | Nome do bucket S3 do Terraform state |
 | `SSH_PUBLIC_KEY` | Chave pública injetada no EC2 |
-| `APP_REPO_TOKEN` | PAT para atualizar secrets no repo do app |
-| `APP_REPO_SLUG` | `owner/repo` do app |
