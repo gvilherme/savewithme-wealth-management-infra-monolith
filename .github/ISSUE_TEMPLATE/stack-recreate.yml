@@ -13,7 +13,6 @@ body:
         > O workflow irá:
         > 1. `terraform destroy` — remove todos os recursos
         > 2. `terraform apply` — recria tudo do zero
-        > 3. Atualiza o secret `EC2_HOST` no repositório do app com o novo IP
 
   - type: checkboxes
     id: confirmation
@@ -24,8 +23,6 @@ body:
           required: true
         - label: Entendo que haverá downtime durante a operação
           required: true
-        - label: Verifiquei que o `APP_REPO_TOKEN` e `APP_REPO_SLUG` estão configurados (para atualização do IP)
-          required: false
 
   - type: textarea
     id: reason
