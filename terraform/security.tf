@@ -1,3 +1,31 @@
+# ---------------------------------------------------------------------------
+# Security Group — VPC Link ENIs
+#
+# API Gateway creates an ENI in the VPC for each VPC Link. This SG is
+# attached to those ENIs and only needs egress to the EC2 on port 8080.
+# Inbound to the ENI is handled by AWS internally (no explicit rule needed).
+# ---------------------------------------------------------------------------
+
+resource "aws_security_group" "vpc_link" {
+  name        = "${var.app_name}-vpc-link-sg"
+  description = "Security group for API Gateway VPC Link ENIs"
+  vpc_id      = aws_vpc.main.id
+
+  egress {
+    description = "Allow outbound to backend EC2 on port 8080"
+    from_port   = 8080
+    to_port     = 8080
+    protocol    = "tcp"
+    cidr_blocks = [aws_vpc.main.cidr_block]
+  }
+
+  tags = { Name = "${var.app_name}-vpc-link-sg" }
+}
+
+# ---------------------------------------------------------------------------
+# Security Group — EC2 application instance
+# ---------------------------------------------------------------------------
+
 resource "aws_security_group" "app" {
   name        = "${var.app_name}-sg"
   description = "Security group for SaveWithMe app"
