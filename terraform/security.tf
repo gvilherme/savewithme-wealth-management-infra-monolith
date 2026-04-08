@@ -23,7 +23,7 @@ resource "aws_security_group" "app" {
   }
 
   ingress {
-    description = "App HTTP — API Gateway internet integration"
+    description = "App HTTP - API Gateway internet integration"
     from_port   = 8080
     to_port     = 8080
     protocol    = "tcp"
