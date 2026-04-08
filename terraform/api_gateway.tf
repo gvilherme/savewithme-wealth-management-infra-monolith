@@ -1,16 +1,18 @@
 # ---------------------------------------------------------------------------
-# HTTP API Gateway — VPC Link to EC2 backend
+# HTTP API Gateway — direct HTTP integration to EC2 Elastic IP
 #
-# Architecture:
-#   Internet → API Gateway (savewithme.api.lorixlabs.com)
-#            → VPC Link (private ENI in the VPC)
-#            → NLB (internal, port 8080)
-#            → EC2 instance (port 8080, Spring Boot)
+# Architecture (MVP — sem NLB):
+#   Internet → API Gateway HTTPS (savewithme.api.lorixlabs.com)
+#            → HTTP_PROXY INTERNET → EC2 Elastic IP :8080 (Spring Boot)
 #
-# CORS is intentionally NOT configured at the gateway level; the Spring Boot
-# backend owns that responsibility via its SecurityConfig. The $default
-# catch-all route forwards OPTIONS pre-flight requests (and any other
-# unmatched paths such as Swagger sub-resources) straight to the backend.
+# Nota: o tráfego Gateway → EC2 atravessa a internet pública (HTTP).
+# O HTTPS é terminado no Gateway; o JWT garante autenticação na camada
+# de aplicação. Quando o suporte a ELB for habilitado na conta, migrar
+# para VPC Link + NLB (ver nlb.tf).
+#
+# CORS é gerenciado pelo Spring Boot — não configurado aqui para evitar
+# headers duplicados. O $default catch-all encaminha OPTIONS pre-flight
+# e recursos estáticos do Swagger UI diretamente ao backend.
 # ---------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------
@@ -31,37 +33,30 @@ resource "aws_cloudwatch_log_group" "api_gateway" {
 resource "aws_apigatewayv2_api" "app" {
   name          = "${var.app_name}-api"
   protocol_type = "HTTP"
-  description   = "SaveWithMe HTTP API — VPC Link proxy to EC2 backend"
+  description   = "SaveWithMe HTTP API — proxy to EC2 backend"
 
   tags = { Name = "${var.app_name}-api" }
 }
 
 # ---------------------------------------------------------------------------
-# VPC Link  (uses the SG defined in security.tf)
-# ---------------------------------------------------------------------------
-
-resource "aws_apigatewayv2_vpc_link" "app" {
-  name               = "${var.app_name}-vpc-link"
-  subnet_ids         = [aws_subnet.public.id]
-  security_group_ids = [aws_security_group.vpc_link.id]
-
-  tags = { Name = "${var.app_name}-vpc-link" }
-}
-
-# ---------------------------------------------------------------------------
-# Integration — HTTP_PROXY through VPC Link → NLB listener
+# Integration — HTTP_PROXY direto para o Elastic IP do EC2
+#
+# `overwrite:path` garante que o path completo da requisição original
+# seja repassado ao backend (ex: /api/v1/accounts → EC2:8080/api/v1/accounts).
 # ---------------------------------------------------------------------------
 
 resource "aws_apigatewayv2_integration" "app" {
   api_id             = aws_apigatewayv2_api.app.id
   integration_type   = "HTTP_PROXY"
   integration_method = "ANY"
-  integration_uri    = aws_lb_listener.app.arn
-  connection_type    = "VPC_LINK"
-  connection_id      = aws_apigatewayv2_vpc_link.app.id
+  integration_uri    = "http://${aws_eip.app.public_ip}:8080"
+  connection_type    = "INTERNET"
 
-  # 1.0 keeps the original request path intact (no transformation)
   payload_format_version = "1.0"
+
+  request_parameters = {
+    "overwrite:path" = "$request.path"
+  }
 }
 
 # ---------------------------------------------------------------------------
@@ -204,9 +199,9 @@ resource "aws_apigatewayv2_route" "get_swagger_ui" {
 # $default catch-all route
 #
 # Handles:
-#   - OPTIONS pre-flight requests (CORS managed by backend)
+#   - OPTIONS pre-flight requests (CORS gerenciado pelo backend)
 #   - Swagger UI static resources (/swagger-ui/*)
-#   - Any future route not yet listed above
+#   - Qualquer rota futura não listada acima
 # ---------------------------------------------------------------------------
 
 resource "aws_apigatewayv2_route" "default" {
@@ -216,7 +211,7 @@ resource "aws_apigatewayv2_route" "default" {
 }
 
 # ---------------------------------------------------------------------------
-# Default stage with auto-deploy
+# Default stage com auto-deploy
 # ---------------------------------------------------------------------------
 
 resource "aws_apigatewayv2_stage" "default" {
@@ -227,17 +222,17 @@ resource "aws_apigatewayv2_stage" "default" {
   access_log_settings {
     destination_arn = aws_cloudwatch_log_group.api_gateway.arn
     format = jsonencode({
-      requestId      = "$context.requestId"
-      routeKey       = "$context.routeKey"
-      status         = "$context.status"
-      httpMethod     = "$context.httpMethod"
-      path           = "$context.path"
-      responseLength = "$context.responseLength"
+      requestId          = "$context.requestId"
+      routeKey           = "$context.routeKey"
+      status             = "$context.status"
+      httpMethod         = "$context.httpMethod"
+      path               = "$context.path"
+      responseLength     = "$context.responseLength"
       integrationLatency = "$context.integrationLatency"
       responseLatency    = "$context.responseLatency"
-      ip             = "$context.identity.sourceIp"
-      userAgent      = "$context.identity.userAgent"
-      errorMessage   = "$context.error.message"
+      ip                 = "$context.identity.sourceIp"
+      userAgent          = "$context.identity.userAgent"
+      errorMessage       = "$context.error.message"
     })
   }
 

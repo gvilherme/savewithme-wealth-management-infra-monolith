@@ -1,29 +1,12 @@
 # ---------------------------------------------------------------------------
-# Security Group — VPC Link ENIs
-#
-# API Gateway creates an ENI in the VPC for each VPC Link. This SG is
-# attached to those ENIs and only needs egress to the EC2 on port 8080.
-# Inbound to the ENI is handled by AWS internally (no explicit rule needed).
-# ---------------------------------------------------------------------------
-
-resource "aws_security_group" "vpc_link" {
-  name        = "${var.app_name}-vpc-link-sg"
-  description = "Security group for API Gateway VPC Link ENIs"
-  vpc_id      = aws_vpc.main.id
-
-  egress {
-    description = "Allow outbound to backend EC2 on port 8080"
-    from_port   = 8080
-    to_port     = 8080
-    protocol    = "tcp"
-    cidr_blocks = [aws_vpc.main.cidr_block]
-  }
-
-  tags = { Name = "${var.app_name}-vpc-link-sg" }
-}
-
-# ---------------------------------------------------------------------------
 # Security Group — EC2 application instance
+#
+# Porta 8080 aberta para 0.0.0.0/0 porque o API Gateway (HTTP_PROXY INTERNET)
+# se conecta ao Elastic IP do EC2 pela internet pública.
+# A autenticação real ocorre na camada de aplicação via JWT Supabase.
+#
+# TODO (pós-MVP): quando o suporte a ELB for habilitado na conta, migrar
+# para VPC Link + NLB e restringir a porta 8080 ao CIDR da VPC novamente.
 # ---------------------------------------------------------------------------
 
 resource "aws_security_group" "app" {
@@ -40,11 +23,11 @@ resource "aws_security_group" "app" {
   }
 
   ingress {
-    description = "App HTTP"
+    description = "App HTTP — API Gateway internet integration"
     from_port   = 8080
     to_port     = 8080
     protocol    = "tcp"
-    cidr_blocks = [aws_vpc.main.cidr_block]
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   egress {
