@@ -21,9 +21,39 @@ resource "aws_iam_role" "dlm" {
   tags = { Name = "${var.app_name}-dlm-role" }
 }
 
-resource "aws_iam_role_policy_attachment" "dlm" {
-  role       = aws_iam_role.dlm.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonDLMServiceRole"
+resource "aws_iam_role_policy" "dlm" {
+  name = "dlm-ec2-snapshots"
+  role = aws_iam_role.dlm.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ec2:CreateSnapshot",
+          "ec2:CreateSnapshots",
+          "ec2:DeleteSnapshot",
+          "ec2:DescribeInstances",
+          "ec2:DescribeVolumes",
+          "ec2:DescribeSnapshots",
+          "ec2:DescribeInstanceStatus",
+          "ec2:EnableFastSnapshotRestores",
+          "ec2:DescribeFastSnapshotRestores",
+          "ec2:DisableFastSnapshotRestores",
+          "ec2:CopySnapshot",
+          "ec2:ModifySnapshotAttribute",
+          "ec2:DescribeSnapshotAttribute"
+        ]
+        Resource = "*"
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["ec2:CreateTags"]
+        Resource = "arn:aws:ec2:*::snapshot/*"
+      }
+    ]
+  })
 }
 
 resource "aws_dlm_lifecycle_policy" "ebs_snapshots" {
