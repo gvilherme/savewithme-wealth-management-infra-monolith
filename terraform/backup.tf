@@ -36,8 +36,11 @@ locals {
 
 resource "aws_s3_bucket" "db_backups" {
   bucket        = local.backup_bucket_name
-  force_destroy = true
+  force_destroy = false
 
+  lifecycle {
+    prevent_destroy = true
+  }
   tags = { Name = local.backup_bucket_name }
 }
 

@@ -85,9 +85,12 @@ resource "aws_instance" "app" {
       if ! blkid "$DATA_DEVICE" &>/dev/null; then
         mkfs.ext4 "$DATA_DEVICE"
       fi
+      DATA_UUID="$(blkid -s UUID -o value "$DATA_DEVICE")"
       mkdir -p /mnt/data
       mount "$DATA_DEVICE" /mnt/data
-      echo "$DATA_DEVICE /mnt/data ext4 defaults,nofail 0 2" >> /etc/fstab
+      if [ -n "$DATA_UUID" ] && ! grep -q "^UUID=$DATA_UUID /mnt/data ext4 defaults,nofail 0 2$" /etc/fstab; then
+        echo "UUID=$DATA_UUID /mnt/data ext4 defaults,nofail 0 2" >> /etc/fstab
+      fi
     fi
 
     # ── 2. Instalar Docker
