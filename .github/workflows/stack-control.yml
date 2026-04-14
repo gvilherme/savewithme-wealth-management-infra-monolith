@@ -15,7 +15,9 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     if: >
-      (github.event.label.name == 'stack:destroy' || github.event.label.name == 'stack:recreate')
+      (github.event.label.name == 'stack:destroy' ||
+       github.event.label.name == 'stack:recreate' ||
+       github.event.label.name == 'ebs:destroy')
       && github.actor == github.repository_owner
 
     steps:
@@ -43,6 +45,40 @@ jobs:
         working-directory: terraform
         run: terraform init -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}"
 
+      # ── Aviso obrigatório para ebs:destroy ───────────────────────────────────
+      - name: "[ebs:destroy] Aviso — operação irreversível"
+        if: github.event.label.name == 'ebs:destroy'
+        run: |
+          echo "::warning::⚠️ ATENÇÃO: esta operação é IRREVERSÍVEL e apagará TODOS OS DADOS do banco de dados."
+          {
+            echo "## ⚠️ ATENÇÃO: DESTRUIÇÃO DO VOLUME EBS"
+            echo ""
+            echo "**Esta operação é irreversível e apagará todos os dados do banco de dados.**"
+            echo ""
+            echo "O volume EBS de dados será deletado permanentemente após este workflow."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # ── Capturar ID do EBS antes de qualquer operação ────────────────────────
+      - name: Capturar ID do volume EBS
+        id: ebs
+        working-directory: terraform
+        run: |
+          EBS_ID=$(terraform show -json 2>/dev/null \
+            | jq -r '.values.root_module.resources[]? | select(.type=="aws_ebs_volume" and .name=="data") | .values.id // empty' \
+            2>/dev/null || true)
+          echo "id=${EBS_ID}" >> "$GITHUB_OUTPUT"
+          echo "has_ebs=$( [ -n \"$EBS_ID\" ] && echo true || echo false )" >> "$GITHUB_OUTPUT"
+
+      # ── Remover EBS do state para não bloquear o destroy ─────────────────────
+      # (o volume físico na AWS NÃO é afetado por state rm)
+      - name: Remover EBS do state Terraform
+        working-directory: terraform
+        if: steps.ebs.outputs.has_ebs == 'true'
+        run: |
+          terraform state rm aws_volume_attachment.data || true
+          terraform state rm aws_ebs_volume.data || true
+
+      # ── Destroy (todos os labels) ─────────────────────────────────────────────
       - name: Terraform Destroy
         working-directory: terraform
         run: |
@@ -51,6 +87,27 @@ jobs:
             -auto-approve \
             -no-color
 
+      # ── [ebs:destroy] Deletar o volume EBS fisicamente na AWS ────────────────
+      - name: "[ebs:destroy] Deletar volume EBS na AWS"
+        if: github.event.label.name == 'ebs:destroy' && steps.ebs.outputs.has_ebs == 'true'
+        run: |
+          aws ec2 delete-volume --volume-id "${{ steps.ebs.outputs.id }}"
+          {
+            echo "### Volume deletado"
+            echo "- Volume ID: \`${{ steps.ebs.outputs.id }}\`"
+            echo "- **Todos os dados foram permanentemente removidos.**"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # ── [stack:destroy / stack:recreate] Re-importar EBS preservado ──────────
+      - name: Re-importar EBS no state Terraform
+        working-directory: terraform
+        if: github.event.label.name != 'ebs:destroy' && steps.ebs.outputs.has_ebs == 'true'
+        run: |
+          terraform import \
+            -var="ssh_public_key=${{ secrets.SSH_PUBLIC_KEY }}" \
+            aws_ebs_volume.data "${{ steps.ebs.outputs.id }}"
+
+      # ── [stack:recreate] Recriar stack ────────────────────────────────────────
       - name: Terraform Apply (stack:recreate only)
         if: github.event.label.name == 'stack:recreate'
         working-directory: terraform
@@ -61,18 +118,27 @@ jobs:
             -no-color
           terraform output -no-color > /tmp/tf_outputs.txt
 
+      # ── Comentários de resultado ──────────────────────────────────────────────
       - name: Comment success
         if: success()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if [ "${{ github.event.label.name }}" == "stack:recreate" ]; then
-            OUTPUTS=$(cat /tmp/tf_outputs.txt 2>/dev/null || echo "sem outputs")
-            printf 'Stack recriada com sucesso.\n\n```\n%s\n```' \
-              "$OUTPUTS" > /tmp/comment.md
-          else
-            echo "Stack destruída com sucesso." > /tmp/comment.md
-          fi
+          case "${{ github.event.label.name }}" in
+            stack:recreate)
+              OUTPUTS=$(cat /tmp/tf_outputs.txt 2>/dev/null || echo "sem outputs")
+              printf 'Stack recriada com sucesso. Volume EBS de dados preservado.\n\n```\n%s\n```' \
+                "$OUTPUTS" > /tmp/comment.md
+              ;;
+            stack:destroy)
+              echo "Stack destruída com sucesso. Volume EBS de dados preservado (ID: ${{ steps.ebs.outputs.id }})." \
+                > /tmp/comment.md
+              ;;
+            ebs:destroy)
+              echo "Stack e volume EBS destruídos. Todos os dados foram removidos permanentemente." \
+                > /tmp/comment.md
+              ;;
+          esac
           gh issue comment ${{ github.event.issue.number }} --body-file /tmp/comment.md
           gh issue close ${{ github.event.issue.number }}
 

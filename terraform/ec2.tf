@@ -71,6 +71,29 @@ resource "aws_instance" "app" {
     #!/bin/bash
     set -e
 
+    # ── 1. Aguardar e montar o volume EBS de dados (/dev/xvdf → nvme1n1 em Nitro)
+    DATA_DEVICE=""
+    for attempt in $(seq 1 30); do
+      for dev in /dev/nvme1n1 /dev/xvdf /dev/sdb; do
+        [ -b "$dev" ] && { DATA_DEVICE="$dev"; break 2; }
+      done
+      sleep 5
+    done
+
+    if [ -n "$DATA_DEVICE" ]; then
+      # Formatar apenas se não houver filesystem
+      if ! blkid "$DATA_DEVICE" &>/dev/null; then
+        mkfs.ext4 "$DATA_DEVICE"
+      fi
+      DATA_UUID="$(blkid -s UUID -o value "$DATA_DEVICE")"
+      mkdir -p /mnt/data
+      mount "$DATA_DEVICE" /mnt/data
+      if [ -n "$DATA_UUID" ] && ! grep -q "^UUID=$DATA_UUID /mnt/data ext4 defaults,nofail 0 2$" /etc/fstab; then
+        echo "UUID=$DATA_UUID /mnt/data ext4 defaults,nofail 0 2" >> /etc/fstab
+      fi
+    fi
+
+    # ── 2. Instalar Docker
     apt-get update
     apt-get install -y ca-certificates curl
 
@@ -84,6 +107,16 @@ resource "aws_instance" "app" {
 
     apt-get update
     apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+    # ── 3. Apontar Docker data-root para o EBS de dados (persiste entre recreates)
+    if [ -n "$DATA_DEVICE" ]; then
+      mkdir -p /mnt/data/docker
+      mkdir -p /etc/docker
+      echo '{"data-root": "/mnt/data/docker"}' > /etc/docker/daemon.json
+    fi
+
+    systemctl enable docker
+    systemctl restart docker
 
     usermod -aG docker ubuntu
 

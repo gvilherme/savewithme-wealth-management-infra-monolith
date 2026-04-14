@@ -49,16 +49,24 @@ push feature/*
 
 **Labels disponíveis:**
 
-| Label | Efeito |
-|-------|--------|
-| `stack:destroy` | `terraform destroy` — destrói toda a infra |
-| `stack:recreate` | `terraform destroy` + `terraform apply` — recria do zero |
+| Label | Efeito | Volume EBS de dados |
+|-------|--------|---------------------|
+| `stack:destroy` | `terraform destroy` — destrói toda a infra | **Preservado** |
+| `stack:recreate` | `terraform destroy` + `terraform apply` — recria do zero | **Preservado** |
+| `ebs:destroy` | `terraform destroy` + `aws ec2 delete-volume` — destrói tudo incluindo dados | **Deletado permanentemente** |
 
-**O que faz (stack:recreate):**
-1. Destrói a infra atual
-2. Recria via terraform apply
-3. Comenta os outputs na issue
-4. Fecha a issue
+**Comportamento de preservação do EBS (`stack:destroy` e `stack:recreate`):**
+1. Captura o ID do volume EBS antes do destroy
+2. Remove o volume do Terraform state (`terraform state rm`) — o volume físico na AWS é mantido
+3. Executa `terraform destroy` (o EBS não é afetado pois não está no state)
+4. Re-importa o volume de volta ao state (`terraform import`)
+5. Em `stack:recreate`: executa `terraform apply` — o novo EC2 é criado e re-anexado ao EBS existente
+
+**Comportamento de `ebs:destroy`:**
+1. ⚠️ Emite aviso no Step Summary do workflow
+2. Remove EBS do state
+3. Executa `terraform destroy`
+4. Deleta o volume EBS fisicamente via AWS CLI (`aws ec2 delete-volume`)
 
 > ⚠️ Só o owner do repositório pode disparar (verificação via `github.actor`).
 > O state Terraform fica no S3, então mesmo após destroy o apply sabe o que recriar.
