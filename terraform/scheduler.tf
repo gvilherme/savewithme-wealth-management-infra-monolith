@@ -107,7 +107,7 @@ resource "aws_cloudwatch_event_target" "stop_ec2" {
 
   input = jsonencode({
     InstanceId           = [aws_instance.app.id]
-    AutomationAssumeRole = [aws_iam_role.ssm_automation_ec2.arn]
+    AutomationAssumeRole = aws_iam_role.ssm_automation_ec2.arn
   })
 }
 
@@ -118,6 +118,6 @@ resource "aws_cloudwatch_event_target" "start_ec2" {
 
   input = jsonencode({
     InstanceId           = [aws_instance.app.id]
-    AutomationAssumeRole = [aws_iam_role.ssm_automation_ec2.arn]
+    AutomationAssumeRole = aws_iam_role.ssm_automation_ec2.arn
   })
 }
