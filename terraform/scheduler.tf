@@ -71,16 +71,24 @@ resource "aws_iam_role_policy" "ssm_automation_ec2" {
 
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [{
-      Effect = "Allow"
-      Action = [
-        "ec2:StopInstances",
-        "ec2:StartInstances",
-        "ec2:DescribeInstances",
-        "ec2:DescribeInstanceStatus"
-      ]
-      Resource = "*"
-    }]
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ec2:StopInstances",
+          "ec2:StartInstances"
+        ]
+        Resource = aws_instance.app.arn
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "ec2:DescribeInstances",
+          "ec2:DescribeInstanceStatus"
+        ]
+        Resource = "*"
+      }
+    ]
   })
 }
 
@@ -107,7 +115,7 @@ resource "aws_cloudwatch_event_target" "stop_ec2" {
 
   input = jsonencode({
     InstanceId           = [aws_instance.app.id]
-    AutomationAssumeRole = [aws_iam_role.ssm_automation_ec2.arn]
+    AutomationAssumeRole = aws_iam_role.ssm_automation_ec2.arn
   })
 }
 
@@ -118,6 +126,6 @@ resource "aws_cloudwatch_event_target" "start_ec2" {
 
   input = jsonencode({
     InstanceId           = [aws_instance.app.id]
-    AutomationAssumeRole = [aws_iam_role.ssm_automation_ec2.arn]
+    AutomationAssumeRole = aws_iam_role.ssm_automation_ec2.arn
   })
 }
