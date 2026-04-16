@@ -174,6 +174,34 @@ resource "aws_apigatewayv2_route" "delete_transaction" {
 }
 
 # ---------------------------------------------------------------------------
+# Routes — Budgets  (/api/v1/user/{userId}/budgets)
+# ---------------------------------------------------------------------------
+
+resource "aws_apigatewayv2_route" "put_budgets" {
+  api_id    = aws_apigatewayv2_api.app.id
+  route_key = "PUT /api/v1/user/{userId}/budgets"
+  target    = "integrations/${aws_apigatewayv2_integration.app.id}"
+}
+
+resource "aws_apigatewayv2_route" "get_budget_progress" {
+  api_id    = aws_apigatewayv2_api.app.id
+  route_key = "GET /api/v1/user/{userId}/budgets/{year}/{month}/progress"
+  target    = "integrations/${aws_apigatewayv2_integration.app.id}"
+}
+
+resource "aws_apigatewayv2_route" "delete_budget" {
+  api_id    = aws_apigatewayv2_api.app.id
+  route_key = "DELETE /api/v1/user/{userId}/budgets/{budgetId}"
+  target    = "integrations/${aws_apigatewayv2_integration.app.id}"
+}
+
+resource "aws_apigatewayv2_route" "get_budget_alerts_stream" {
+  api_id    = aws_apigatewayv2_api.app.id
+  route_key = "GET /api/v1/user/{userId}/budgets/alerts/stream"
+  target    = "integrations/${aws_apigatewayv2_integration.app.id}"
+}
+
+# ---------------------------------------------------------------------------
 # Routes — Observability & Docs
 # ---------------------------------------------------------------------------
 
