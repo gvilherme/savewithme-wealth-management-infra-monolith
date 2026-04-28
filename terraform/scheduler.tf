@@ -197,14 +197,14 @@ resource "aws_cloudwatch_event_rule" "stop_ec2" {
   name                = "${var.app_name}-stop-ec2"
   description         = "Para o EC2 às 15:00 UTC (12:00 BRT)"
   schedule_expression = "cron(0 15 * * ? *)"
-  is_enabled          = true
+  state               = "ENABLED"
 }
 
 resource "aws_cloudwatch_event_rule" "start_ec2" {
   name                = "${var.app_name}-start-ec2"
   description         = "Liga o EC2 às 10:00 UTC (07:00 BRT)"
   schedule_expression = "cron(0 10 * * ? *)"
-  is_enabled          = true
+  state               = "ENABLED"
 }
 
 # ── EventBridge Targets → SSM Automation ─────────────────────────────────────
