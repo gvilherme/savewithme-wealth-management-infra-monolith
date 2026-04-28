@@ -131,7 +131,7 @@ resource "aws_ssm_document" "stop_ec2_by_tag" {
         outputs = [
           {
             Name     = "InstanceIds"
-            Selector = "$.Reservations[*].Instances[*].InstanceId"
+            Selector = "$..InstanceId"
             Type     = "StringList"
           }
         ]
@@ -178,7 +178,7 @@ resource "aws_ssm_document" "start_ec2_by_tag" {
         outputs = [
           {
             Name     = "InstanceIds"
-            Selector = "$.Reservations[*].Instances[*].InstanceId"
+            Selector = "$..InstanceId"
             Type     = "StringList"
           }
         ]
