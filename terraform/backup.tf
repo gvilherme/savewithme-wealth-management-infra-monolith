@@ -86,11 +86,18 @@ resource "aws_iam_policy" "ec2_s3_backup" {
 
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [{
-      Effect   = "Allow"
-      Action   = ["s3:PutObject"]
-      Resource = "${aws_s3_bucket.db_backups.arn}/daily/*"
-    }]
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["s3:PutObject"]
+        Resource = "${aws_s3_bucket.db_backups.arn}/daily/*"
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["s3:GetBucketLocation"]
+        Resource = aws_s3_bucket.db_backups.arn
+      }
+    ]
   })
 }
 
@@ -115,6 +122,7 @@ resource "aws_ssm_document" "pg_dump_cron" {
         runCommand = [
           "#!/bin/bash",
           "set -e",
+          "command -v aws &>/dev/null || { apt-get update -qq && apt-get install -y awscli; }",
           # Escreve o script de backup decodificando base64 para evitar problemas
           # de escaping em shell-dentro-de-JSON-dentro-de-HCL.
           "echo '${base64encode(local.pg_dump_script)}' | base64 -d > /usr/local/bin/pg-dump-backup.sh",
