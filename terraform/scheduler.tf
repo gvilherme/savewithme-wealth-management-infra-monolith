@@ -79,9 +79,14 @@ resource "aws_iam_role_policy" "ssm_automation_ec2" {
           "ec2:StopInstances",
           "ec2:StartInstances"
         ]
-        # Resource "*" necessário: o document resolve o ID por tag em runtime,
-        # não é possível restringir a uma ARN estática no momento do apply.
-        Resource = "*"
+        # Mantém a resolução dinâmica por tag no Automation Document, mas
+        # restringe a permissão a instâncias desta conta/região com a tag esperada.
+        Resource = "arn:aws:ec2:${var.aws_region}:${data.aws_caller_identity.current.account_id}:instance/*"
+        Condition = {
+          StringEquals = {
+            "ec2:ResourceTag/Name" = "${var.app_name}-ec2"
+          }
+        }
       },
       {
         Effect = "Allow"
