@@ -202,6 +202,58 @@ resource "aws_apigatewayv2_route" "get_budget_alerts_stream" {
 }
 
 # ---------------------------------------------------------------------------
+# Routes — Recurring Rules  (/api/v1/recurring-rules)
+# ---------------------------------------------------------------------------
+
+resource "aws_apigatewayv2_route" "post_recurring_rules" {
+  api_id    = aws_apigatewayv2_api.app.id
+  route_key = "POST /api/v1/recurring-rules"
+  target    = "integrations/${aws_apigatewayv2_integration.app.id}"
+}
+
+resource "aws_apigatewayv2_route" "get_recurring_rules" {
+  api_id    = aws_apigatewayv2_api.app.id
+  route_key = "GET /api/v1/recurring-rules"
+  target    = "integrations/${aws_apigatewayv2_integration.app.id}"
+}
+
+resource "aws_apigatewayv2_route" "get_recurring_rule_by_id" {
+  api_id    = aws_apigatewayv2_api.app.id
+  route_key = "GET /api/v1/recurring-rules/{id}"
+  target    = "integrations/${aws_apigatewayv2_integration.app.id}"
+}
+
+resource "aws_apigatewayv2_route" "patch_recurring_rule" {
+  api_id    = aws_apigatewayv2_api.app.id
+  route_key = "PATCH /api/v1/recurring-rules/{id}"
+  target    = "integrations/${aws_apigatewayv2_integration.app.id}"
+}
+
+resource "aws_apigatewayv2_route" "post_recurring_rule_pause" {
+  api_id    = aws_apigatewayv2_api.app.id
+  route_key = "POST /api/v1/recurring-rules/{id}/pause"
+  target    = "integrations/${aws_apigatewayv2_integration.app.id}"
+}
+
+resource "aws_apigatewayv2_route" "post_recurring_rule_resume" {
+  api_id    = aws_apigatewayv2_api.app.id
+  route_key = "POST /api/v1/recurring-rules/{id}/resume"
+  target    = "integrations/${aws_apigatewayv2_integration.app.id}"
+}
+
+resource "aws_apigatewayv2_route" "post_recurring_rule_end" {
+  api_id    = aws_apigatewayv2_api.app.id
+  route_key = "POST /api/v1/recurring-rules/{id}/end"
+  target    = "integrations/${aws_apigatewayv2_integration.app.id}"
+}
+
+resource "aws_apigatewayv2_route" "get_recurring_rule_occurrences" {
+  api_id    = aws_apigatewayv2_api.app.id
+  route_key = "GET /api/v1/recurring-rules/{id}/occurrences"
+  target    = "integrations/${aws_apigatewayv2_integration.app.id}"
+}
+
+# ---------------------------------------------------------------------------
 # Routes — Observability & Docs
 # ---------------------------------------------------------------------------
 
